@@ -98,17 +98,44 @@ async function loadDB() {
     OPM.db = JSON.parse(local);
     return;
   }
-  const res = await fetch("../database/opm-db.json");
-  OPM.db = await res.json();
+
+  try {
+    // NOTE: path is relative to index.html root on GitHub Pages
+    const res = await fetch("database/opm-db.json");
+    if (!res.ok) throw new Error("DB file not found");
+    OPM.db = await res.json();
+  } catch (err) {
+    console.error("Failed to load DB, using in-memory defaults:", err);
+    // minimal safe fallback so app still runs
+    OPM.db = {
+      statusPages: [],
+      integrations: [],
+      users: [],
+      history: [],
+      notifications: [],
+      logs: [],
+      featureFlags: {},
+      analyticsCache: {}
+    };
+  }
   saveDB();
 }
 
 async function loadConfigs() {
-  const statusRes = await fetch("../config/status-pages.json");
-  const integRes = await fetch("../config/integrations.json");
+  try {
+    // Paths are relative to index.html
+    const statusRes = await fetch("config/status-pages.json");
+    const integRes  = await fetch("config/integrations.json");
 
-  OPM.statusConfigs = await statusRes.json();
-  OPM.integrationConfigs = await integRes.json();
+    if (!statusRes.ok || !integRes.ok) throw new Error("Config fetch failed");
+
+    OPM.statusConfigs      = await statusRes.json();
+    OPM.integrationConfigs = await integRes.json();
+  } catch (err) {
+    console.error("Failed to load configs:", err);
+    OPM.statusConfigs = [];
+    OPM.integrationConfigs = [];
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -583,7 +610,8 @@ function showPopupAlert(text) {
 
 function playAlertSound(type) {
   if (type === "none") return;
-  new Audio(`../assets/sounds/${type}.mp3`).play().catch(() => {});
+  // path relative to index.html
+  new Audio(`assets/sounds/${type}.mp3`).play().catch(() => {});
 }
 
 /* ----------------------------------------------------------------
