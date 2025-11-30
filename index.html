@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>OnePage Monitoring v2.1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="OnePage Monitoring v2.1 — unified status, incidents, and integrations dashboard." />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body data-theme="light" data-role="public">
+  <div id="app" data-env="staging">
+    <!-- ====================== HEADER ======================= -->
+    <header class="topbar" aria-label="OnePage Monitoring header">
+      <div class="topbar-left">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">◎</div>
+          <div class="brand-text">
+            <div class="brand-title">OnePage Monitoring</div>
+            <div class="brand-subtitle">Unified status dashboard · v2.1</div>
+          </div>
+        </div>
+
+        <span id="envBadge" class="env-badge" aria-label="Current environment">
+          STAGING
+        </span>
+      </div>
+
+      <div class="topbar-center">
+        <form id="globalSearchForm" class="global-search" role="search" aria-label="Search services, incidents, or integrations">
+          <input
+            id="globalSearchInput"
+            class="global-search-input"
+            type="search"
+            placeholder="Search services, incidents, or integrations · press / to focus"
+            autocomplete="off"
+          />
+          <button id="globalSearchBtn" class="btn btn-primary" type="submit">Search</button>
+        </form>
+      </div>
+
+      <div class="topbar-right" role="toolbar" aria-label="Header controls">
+        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle light / dark theme">
+          🌓
+        </button>
+
+        <button id="notifBtn" class="icon-btn" type="button" title="Notifications" aria-haspopup="true" aria-expanded="false">
+          🔔
+          <span id="notifBadge" class="badge" aria-label="Unread notifications" hidden>0</span>
+        </button>
+
+        <button id="historyQuickBtn" class="icon-btn" type="button" title="Open history (H)">
+          🕓
+        </button>
+
+        <button id="userMenuBtn" class="avatar-btn" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="avatar-initials" id="avatarInitials">OP</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ====================== LAYOUT ======================= -->
+    <div class="layout">
+      <!-- =============== SIDEBAR =============== -->
+      <aside id="sidebar" class="sidebar" aria-label="Sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Overview & tools</span>
+          <button id="sidebarToggleBtn" class="icon-btn icon-btn--small" type="button" aria-label="Collapse sidebar">⟨</button>
+        </div>
+
+        <!-- KPIs -->
+        <section class="sidebar-section" aria-label="Integrations and KPIs">
+          <h2 class="section-heading">Integrations & KPIs</h2>
+          <div class="kpi-grid">
+            <article class="kpi-card" id="kpiPager" aria-label="PagerDuty KPI">
+              <div class="kpi-label">PagerDuty</div>
+              <div class="kpi-value" id="kpiPagerVal">0</div>
+              <div class="kpi-sub">Open incidents</div>
+            </article>
+
+            <article class="kpi-card" id="kpiAdo" aria-label="Azure DevOps KPI">
+              <div class="kpi-label">Azure DevOps</div>
+              <div class="kpi-value" id="kpiAdoVal">0</div>
+              <div class="kpi-sub">Active work items</div>
+            </article>
+
+            <article class="kpi-card" id="kpiNewRelic" aria-label="New Relic KPI">
+              <div class="kpi-label">New Relic</div>
+              <div class="kpi-value" id="kpiNewVal">0</div>
+              <div class="kpi-sub">Open violations</div>
+            </article>
+          </div>
+
+          <div class="kpi-actions">
+            <button id="pdRefresh" class="btn btn-ghost btn-compact" type="button">Refresh PagerDuty</button>
+            <button id="adoRefresh" class="btn btn-ghost btn-compact" type="button">Refresh ADO</button>
+            <button id="nrRefresh" class="btn btn-ghost btn-compact" type="button">Refresh New Relic</button>
+          </div>
+        </section>
+
+        <!-- Custom services -->
+        <section class="sidebar-section" aria-label="Custom status services">
+          <h2 class="section-heading">Custom services</h2>
+          <label class="field">
+            <span class="field-label">Name</span>
+            <input id="customServiceName" class="input" type="text" placeholder="My internal API" />
+          </label>
+          <label class="field">
+            <span class="field-label">Status URL</span>
+            <input
+              id="customServiceUrl"
+              class="input"
+              type="url"
+              placeholder="https://example.com/status.json or status page"
+            />
+          </label>
+          <div class="field-row">
+            <button id="addCustomServiceBtn" class="btn btn-primary btn-full" type="button">Add service</button>
+          </div>
+          <div class="field-row">
+            <button id="exportHistoryCsvBtn" class="btn btn-ghost btn-full" type="button">
+              Export history CSV
+            </button>
+          </div>
+          <div id="customServiceList" class="custom-service-list" aria-live="polite"></div>
+        </section>
+
+        <!-- History & share -->
+        <section class="sidebar-section" aria-label="History and sharing">
+          <h2 class="section-heading">History & share</h2>
+          <div class="field-column">
+            <button id="openHistoryBtn" class="btn btn-ghost btn-full" type="button">Open history (H)</button>
+            <button id="clearAllHistoryBtn" class="btn btn-ghost btn-full" type="button">
+              Mark all read / clear
+            </button>
+          </div>
+
+          <p classory="muted small">
+            Create a read-only snapshot link with current widgets and event history.
+          </p>
+
+          <label class="field">
+            <span class="field-label">Public link label (optional)</span>
+            <input id="publicNameInput" class="input" type="text" placeholder="Example: Morning snapshot for on-call" />
+          </label>
+
+          <div class="field-row">
+            <button id="createPublicLinkBtn" class="btn btn-primary btn-full" type="button">
+              Create public link
+            </button>
+          </div>
+
+          <div id="publicLinkArea" class="public-link-area" aria-live="polite"></div>
+        </section>
+
+        <!-- Shortcuts -->
+        <section class="sidebar-section" aria-label="Keyboard shortcuts">
+          <h2 class="section-heading">Shortcuts</h2>
+          <ul class="shortcut-list">
+            <li><kbd>R</kbd> Refresh all</li>
+            <li><kbd>/</kbd> Focus search</li>
+            <li><kbd>H</kbd> Toggle history</li>
+            <li><kbd>T</kbd> Toggle theme</li>
+          </ul>
+        </section>
+
+        <footer class="sidebar-footer">
+          <div class="sidebar-footer-line">
+            Role: <span id="roleLabel">Public (read-only)</span>
+          </div>
+          <div class="sidebar-footer-line small">
+            Dashboard Version <strong>2.1</strong> · Local DB mode
+          </div>
+        </footer>
+      </aside>
+
+      <!-- =============== MAIN CONTENT =============== -->
+      <main id="mainContent" class="main-content" aria-live="polite">
+        <!-- NAV TABS -->
+        <nav class="tabs" aria-label="Main views">
+          <button class="tab active" data-view="dashboard" id="tabDashboard" type="button">Dashboard</button>
+          <button class="tab" data-view="analytics" id="tabAnalytics" type="button">Analytics</button>
+          <button class="tab" data-view="admin" id="tabAdmin" type="button">Admin</button>
+          <button class="tab" data-view="settings" id="tabSettings" type="button">Settings</button>
+          <button class="tab" data-view="profile" id="tabProfile" type="button">Profile</button>
+        </nav>
+
+        <!-- ===== DASHBOARD VIEW ===== -->
+        <section id="viewDashboard" class="view view--active" aria-label="Dashboard view">
+          <header class="view-header">
+            <div class="view-header-left">
+              <h2>Status widgets</h2>
+              <span id="refreshStatusLabel" class="muted small">Ready</span>
+            </div>
+            <div class="view-header-right">
+              <button id="pauseAutoRefreshBtn" class="btn btn-ghost btn-compact" type="button">
+                Pause auto-refresh
+              </button>
+              <button id="toggleSoundBtn" class="btn btn-ghost btn-compact" type="button">
+                🔊 Alerts
+              </button>
+              <button id="refreshAllBtn" class="btn btn-primary btn-compact" type="button">
+                ↻ Refresh all
+              </button>
+            </div>
+          </header>
+
+          <!-- Overview chips -->
+          <section class="overview-strip" aria-label="Status overview">
+            <div class="overview-item">
+              <span class="overview-label">Operational</span>
+              <span id="countOperational" class="overview-value">0</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">Warning / degraded</span>
+              <span id="countWarning" class="overview-value">0</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">Major / down</span>
+              <span id="countDown" class="overview-value">0</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">Unknown</span>
+              <span id="countUnknown" class="overview-value">0</span>
+            </div>
+          </section>
+
+          <!-- Status widgets grid -->
+          <section id="statusWidgetsGrid" class="widget-grid" aria-label="Status widgets grid">
+            <!-- Cards rendered dynamically -->
+          </section>
+
+          <!-- Alerts & incidents strip -->
+          <section class="alerts-strip" aria-label="Recent alerts and incidents">
+            <header class="section-header">
+              <h3>Alerts & incidents</h3>
+              <button id="openHistoryFromDashboardBtn" class="btn btn-ghost btn-compact" type="button">
+                Open history
+              </button>
+            </header>
+            <div id="recentAlertsList" class="recent-alerts-list" aria-live="polite">
+              <!-- Populated dynamically -->
+            </div>
+          </section>
+        </section>
+
+        <!-- ===== ANALYTICS VIEW ===== -->
+        <section id="viewAnalytics" class="view" aria-label="Analytics view" hidden>
+          <header class="view-header">
+            <div class="view-header-left">
+              <h2>Analytics</h2>
+              <span class="muted small">Service health & incident trends</span>
+            </div>
+            <div class="view-header-right">
+              <button id="analyticsExportCsvBtn" class="btn btn-ghost btn-compact" type="button">
+                Export analytics CSV
+              </button>
+            </div>
+          </header>
+
+          <section class="analytics-grid">
+            <article class="analytics-card">
+              <h3>Uptime % by service</h3>
+              <canvas id="chartUptime" aria-label="Uptime chart"></canvas>
+            </article>
+
+            <article class="analytics-card">
+              <h3>Incidents over time</h3>
+              <canvas id="chartIncidents" aria-label="Incidents chart"></canvas>
+            </article>
+
+            <article class="analytics-card">
+              <h3>Integrations activity</h3>
+              <canvas id="chartIntegrations" aria-label="Integrations chart"></canvas>
+            </article>
+          </section>
+        </section>
+
+        <!-- ===== ADMIN VIEW ===== -->
+        <section id="viewAdmin" class="view" aria-label="Admin view" hidden>
+          <header class="view-header">
+            <div class="view-header-left">
+              <h2>Admin</h2>
+              <span class="muted small">Manage status pages, integrations, and feature flags</span>
+            </div>
+            <div class="view-header-right">
+              <span class="badge badge-outline" id="adminRoleBadge">Admin only</span>
+            </div>
+          </header>
+
+          <!-- Status pages management -->
+          <section class="admin-section" aria-label="Status page configuration">
+            <header class="section-header">
+              <h3>Status pages</h3>
+              <button id="adminAddStatusPageBtn" class="btn btn-primary btn-compact" type="button">
+                Add status page
+              </button>
+            </header>
+
+            <table class="table" id="adminStatusTable" aria-label="Status pages table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>API URL</th>
+                  <th>Status page URL</th>
+                  <th>Enabled</th>
+                  <th>Env</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Rows rendered dynamically -->
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Integrations management -->
+          <section class="admin-section" aria-label="Integrations configuration">
+            <header class="section-header">
+              <h3>Integrations</h3>
+            </header>
+
+            <table class="table" id="adminIntegrationsTable" aria-label="Integrations table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Environment</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Populated via JS from config/integrations.json -->
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Feature flags -->
+          <section class="admin-section" aria-label="Feature flags">
+            <header class="section-header">
+              <h3>Feature flags</h3>
+            </header>
+
+            <div id="featureFlagsList" class="feature-flags-list">
+              <!-- Dynamically rendered switches -->
+            </div>
+          </section>
+
+          <!-- Logs -->
+          <section class="admin-section" aria-label="System logs">
+            <header class="section-header">
+              <h3>System logs</h3>
+              <button id="clearLogsBtn" class="btn btn-ghost btn-compact" type="button">Clear logs</button>
+            </header>
+            <div id="logList" class="log-list" aria-live="polite">
+              <!-- Log entries -->
+            </div>
+          </section>
+        </section>
+
+        <!-- ===== SETTINGS VIEW ===== -->
+        <section id="viewSettings" class="view" aria-label="Settings view" hidden>
+          <header class="view-header">
+            <div class="view-header-left">
+              <h2>Settings</h2>
+              <span class="muted small">Personal preferences & local settings</span>
+            </div>
+          </header>
+
+          <section class="settings-grid">
+            <article class="settings-card">
+              <h3>Theme & display</h3>
+              <label class="field">
+                <span class="field-label">Theme</span>
+                <select id="settingsThemeSelect" class="input">
+                  <option value="auto">Auto (system)</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+
+              <label class="field field--inline">
+                <input id="settingsCompactMode" type="checkbox" />
+                <span class="field-label-inline">Enable compact widget mode</span>
+              </label>
+            </article>
+
+            <article class="settings-card">
+              <h3>Alerts & notifications</h3>
+              <label class="field">
+                <span class="field-label">Auto-refresh interval (seconds)</span>
+                <select id="settingsRefreshInterval" class="input">
+                  <option value="0">Disabled</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="60">60</option>
+                  <option value="120">120</option>
+                </select>
+              </label>
+
+              <label class="field field--inline">
+                <input id="settingsPopupAlerts" type="checkbox" checked />
+                <span class="field-label-inline">Enable popup alerts</span>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Alert sound</span>
+                <select id="settingsAlertSound" class="input">
+                  <option value="beep">Beep</option>
+                  <option value="chime">Soft chime</option>
+                  <option value="none">Silent</option>
+                </select>
+              </label>
+
+              <button id="testAlertSoundBtn" class="btn btn-ghost btn-compact" type="button">Test sound</button>
+            </article>
+
+            <article class="settings-card">
+              <h3>Local data</h3>
+              <p class="muted small">
+                Settings, history, and custom services are stored locally in this browser. Use these tools to manage
+                or export your data.
+              </p>
+              <div class="field-column">
+                <button id="exportSettingsBtn" class="btn btn-ghost btn-full" type="button">
+                  Export settings JSON
+                </button>
+                <button id="resetLocalDataBtn" class="btn btn-danger btn-full" type="button">
+                  Reset local data
+                </button>
+              </div>
+            </article>
+          </section>
+        </section>
+
+        <!-- ===== PROFILE VIEW ===== -->
+        <section id="viewProfile" class="view" aria-label="Profile view" hidden>
+          <header class="view-header">
+            <div class="view-header-left">
+              <h2>User profile</h2>
+              <span class="muted small">Session, role & preferences</span>
+            </div>
+          </header>
+
+          <section class="profile-grid">
+            <article class="profile-card">
+              <h3>Identity</h3>
+              <div class="profile-row">
+                <span class="profile-label">Name</span>
+                <span id="profileName" class="profile-value">Guest user</span>
+              </div>
+              <div class="profile-row">
+                <span class="profile-label">Role</span>
+                <span id="profileRole" class="profile-value">Public (read-only)</span>
+              </div>
+              <div class="profile-row">
+                <span class="profile-label">Environment</span>
+                <span id="profileEnv" class="profile-value">STAGING</span>
+              </div>
+            </article>
+
+            <article class="profile-card">
+              <h3>Session controls</h3>
+              <div class="field-column">
+                <button id="loginAsAdminBtn" class="btn btn-primary btn-full" type="button">
+                  Login as admin (local)
+                </button>
+                <button id="loginAsViewerBtn" class="btn btn-ghost btn-full" type="button">
+                  Switch to viewer
+                </button>
+                <button id="logoutBtn" class="btn btn-ghost btn-full" type="button">
+                  Log out
+                </button>
+              </div>
+              <p class="muted tiny">
+                This is a local-only auth model for demo/staging. It is designed to be replaced by a real
+                authentication system later.
+              </p>
+            </article>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ GLOBAL PANELS & MODALS ============ -->
+
+  <!-- Notification panel -->
+  <aside id="notifPanel" class="notif-panel" role="dialog" aria-label="Notification center" hidden>
+    <header class="notif-header">
+      <div>
+        <h2>Notifications</h2>
+        <span class="muted small">Recent alerts & events</span>
+      </div>
+      <div class="notif-actions">
+        <button id="markAllNotifsReadBtn" class="btn btn-ghost btn-compact" type="button">
+          Mark all read
+        </button>
+        <button id="closeNotifPanelBtn" class="icon-btn icon-btn--small" type="button" aria-label="Close">
+          ✕
+        </button>
+      </div>
+    </header>
+    <div id="notifList" class="notif-list" role="list">
+      <!-- Notifications rendered here -->
+    </div>
+  </aside>
+
+  <!-- History modal -->
+  <div id="historyOverlay" class="overlay" hidden></div>
+  <section id="historyModal" class="modal modal--large" role="dialog" aria-modal="true" aria-labelledby="historyTitle" hidden>
+    <header class="modal-header">
+      <div>
+        <h2 id="historyTitle">Alerts, incidents & events history</h2>
+        <span class="muted small">Filter and explore past events across services and integrations</span>
+      </div>
+      <button id="closeHistoryModalBtn" class="icon-btn" type="button" aria-label="Close history">✕</button>
+    </header>
+
+    <div class="modal-body">
+      <div class="history-filters">
+        <select id="historyServiceFilter" class="input">
+          <option value="">All services</option>
+        </select>
+        <select id="historyStatusFilter" class="input">
+          <option value="">All statuses</option>
+          <option value="operational">Operational</option>
+          <option value="warning">Warning / degraded</option>
+          <option value="major">Major / down</option>
+        </select>
+        <input id="historySearchInput" class="input" type="search" placeholder="Search text or incident id" />
+      </div>
+      <div id="historyList" class="history-list" aria-live="polite">
+        <!-- History entries -->
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <button id="exportHistoryCsvBtnFooter" class="btn btn-ghost" type="button">Export CSV</button>
+      <button id="closeHistoryModalBtn2" class="btn btn-primary" type="button">Close</button>
+    </footer>
+  </section>
+
+  <!-- Public preview modal -->
+  <section
+    id="publicPreviewModal"
+    class="modal modal--medium"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="publicPreviewTitle"
+    hidden
+  >
+    <header class="modal-header">
+      <h2 id="publicPreviewTitle">Public snapshot preview</h2>
+      <button id="closePublicPreviewBtn" class="icon-btn" type="button" aria-label="Close preview">✕</button>
+    </header>
+    <div class="modal-body">
+      <p class="muted small">
+        This preview shows what a shared, read-only public dashboard would contain when opened using the generated
+        link.
+      </p>
+      <div id="publicPreviewContent" class="public-preview-content">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+    <footer class="modal-footer">
+      <button id="downloadSnapshotBtn" class="btn btn-ghost" type="button">Download JSON snapshot</button>
+      <button id="closePublicPreviewBtn2" class="btn btn-primary" type="button">Close</button>
+    </footer>
+  </section>
+
+  <!-- Popup alert -->
+  <div id="alertPopup" class="alert-popup" role="alert" aria-live="assertive" hidden></div>
+
+  <!-- Loading bar -->
+  <div id="globalLoadingBar" class="loading-bar" hidden></div>
+
+  <!-- Main script -->
+  <script src="scripts/main.js" defer></script>
+</body>
+</html>

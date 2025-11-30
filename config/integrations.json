@@ -1,0 +1,94 @@
+[
+  {
+    "id": "int-pagerduty",
+    "name": "PagerDuty",
+    "type": "incident-management",
+    "description": "Fetch current incidents, alerts, and on-call status.",
+    "api": {
+      "incidentList": "https://api.pagerduty.com/incidents",
+      "onCall": "https://api.pagerduty.com/oncalls"
+    },
+    "authType": "apiKey",
+    "fields": {
+      "apiKey": "",
+      "teamId": "",
+      "serviceId": ""
+    },
+    "env": "all",
+    "enabled": true,
+    "pollInterval": 60,
+    "sampleResponse": {
+      "incidents": [
+        {
+          "id": "P12345",
+          "status": "triggered",
+          "title": "Database latency detected",
+          "service": "Core API",
+          "severity": "critical",
+          "created_at": "2025-01-01T12:00:00Z"
+        }
+      ]
+    }
+  },
+
+  {
+    "id": "int-azdo",
+    "name": "Azure DevOps",
+    "type": "devops",
+    "description": "Fetch build, release, and pipeline health.",
+    "api": {
+      "buildSummary": "https://dev.azure.com/{org}/{project}/_apis/build/builds?api-version=7.1-preview.7",
+      "pipelineRuns": "https://dev.azure.com/{org}/{project}/_apis/pipelines?api-version=7.1-preview.1"
+    },
+    "authType": "pat",
+    "fields": {
+      "organization": "",
+      "project": "",
+      "pat": ""
+    },
+    "env": "all",
+    "enabled": true,
+    "pollInterval": 75,
+    "sampleResponse": {
+      "builds": [
+        {
+          "id": 101,
+          "status": "completed",
+          "result": "succeeded",
+          "definition": "CI Build",
+          "finishTime": "2025-01-01T13:15:00Z"
+        }
+      ]
+    }
+  },
+
+  {
+    "id": "int-newrelic",
+    "name": "New Relic",
+    "type": "monitoring",
+    "description": "Fetch NR alerts, violations, and APM health.",
+    "api": {
+      "alerts": "https://api.newrelic.com/v2/alerts_violations.json",
+      "applications": "https://api.newrelic.com/v2/applications.json"
+    },
+    "authType": "apiKey",
+    "fields": {
+      "apiKey": "",
+      "accountId": ""
+    },
+    "env": "all",
+    "enabled": true,
+    "pollInterval": 90,
+    "sampleResponse": {
+      "violations": [
+        {
+          "id": 9001,
+          "label": "API Error Rate High",
+          "priority": "critical",
+          "opened_at": 1735700000,
+          "entity": "Payment API"
+        }
+      ]
+    }
+  }
+]

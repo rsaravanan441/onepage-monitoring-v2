@@ -1,0 +1,128 @@
+[
+  {
+    "id": "svc-genesys",
+    "name": "Genesys Cloud",
+    "category": "Communication",
+    "api": "https://status.mypurecloud.com/api/v2/status.json",
+    "page": "https://status.mypurecloud.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-ice-mortgage",
+    "name": "ICE Mortgage Technology",
+    "category": "Financial Services",
+    "api": "https://status.icemortgagetechnology.com/",
+    "page": "https://status.icemortgagetechnology.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-fortanix",
+    "name": "Fortanix SaaS",
+    "category": "Security",
+    "api": "https://status.fortanix.com/",
+    "page": "https://status.fortanix.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-snowflake",
+    "name": "Snowflake",
+    "category": "Data Platform",
+    "api": "https://status.snowflake.com/",
+    "page": "https://status.snowflake.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-twilio",
+    "name": "Twilio",
+    "category": "Communication",
+    "api": "https://status.twilio.com/api/v2/status.json",
+    "page": "https://status.twilio.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-polly",
+    "name": "Polly",
+    "category": "Collaboration",
+    "api": "https://status.polly.ai/",
+    "page": "https://status.polly.ai/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-postman",
+    "name": "Postman",
+    "category": "Developer Tools",
+    "api": "https://status.postman.com/api/v2/status.json",
+    "page": "https://status.postman.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-ess-public",
+    "name": "ESS (Public)",
+    "category": "Real Estate",
+    "api": "https://status.esspublic.com/",
+    "page": "https://status.esspublic.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-informative-research",
+    "name": "Informative Research",
+    "category": "Financial Services",
+    "api": "https://status.informativeresearch.com/",
+    "page": "https://status.informativeresearch.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-azure-devops",
+    "name": "Azure DevOps",
+    "category": "Cloud / DevOps",
+    "api": "https://status.dev.azure.com/_apis/status/health?api-version=7.1-preview.1",
+    "page": "https://status.dev.azure.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-azure",
+    "name": "Azure Status",
+    "category": "Cloud",
+    "api": "https://status.azure.com/en-us/status",
+    "page": "https://status.azure.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-optimizely",
+    "name": "Optimizely",
+    "category": "Digital Experience",
+    "api": "https://status.episerver.com/",
+    "page": "https://status.episerver.com/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-ping-identity",
+    "name": "Ping Identity",
+    "category": "Security",
+    "api": "https://pingidentity.statuspage.io/api/v2/status.json",
+    "page": "https://pingidentity.statuspage.io/",
+    "env": "all",
+    "enabled": true
+  },
+  {
+    "id": "svc-cloudflare",
+    "name": "Cloudflare",
+    "category": "Networking",
+    "api": "https://www.cloudflarestatus.com/history.atom",
+    "page": "https://www.cloudflarestatus.com/",
+    "env": "all",
+    "enabled": true
+  }
+]

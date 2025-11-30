@@ -1,0 +1,106 @@
+{
+  "version": "2.1",
+  "environment": {
+    "current": "staging",
+    "default": "staging",
+    "allowed": ["staging", "production"],
+    "lastPromotionTs": null,
+    "promotionNotes": ""
+  },
+
+  "statusPages": [
+    /* 
+      NOTE:
+      Actual status pages come from config/status-pages.json.
+      Admin UI changes will be synced here at runtime.
+    */
+  ],
+
+  "integrations": [
+    /* 
+      NOTE:
+      Integration definitions come from config/integrations.json.
+      Admin UI changes will be synced here.
+    */
+  ],
+
+  "users": [
+    {
+      "id": "user-public",
+      "name": "Public User",
+      "role": "public",
+      "created": 0
+    },
+    {
+      "id": "user-viewer",
+      "name": "Viewer User",
+      "role": "viewer",
+      "created": 0
+    },
+    {
+      "id": "user-admin",
+      "name": "Admin User",
+      "role": "admin",
+      "created": 0
+    }
+  ],
+
+  "history": [
+    /*
+      {
+        "id": "uuid",
+        "widgetId": "service-id",
+        "name": "Service Name",
+        "level": "ok|warning|major|unknown",
+        "message": "Full message text",
+        "ts": 1735693321111
+      }
+    */
+  ],
+
+  "notifications": [
+    /*
+      {
+        "id": "uuid",
+        "title": "Azure DevOps Down",
+        "message": "Build pipelines degraded",
+        "ts": 1735693552222,
+        "unread": true
+      }
+    */
+  ],
+
+  "logs": [
+    {
+      "id": "init-log",
+      "ts": 0,
+      "type": "system",
+      "text": "OnePage Monitoring database initialized"
+    }
+  ],
+
+  "featureFlags": {
+    "enableCustomThemes": false,
+    "enableAdvancedAnalytics": false,
+    "enablePublicSnapshots": true,
+    "enableHtmlParserFallback": true,
+    "enableAdminStatusManager": true,
+    "enableWidgetSort": false,
+    "enableIntegrationPolling": false,
+    "enableCompactModeSetting": true,
+    "enableStagingPromotion": true
+  },
+
+  "analyticsCache": {
+    "uptime": {},
+    "incidentTrends": {},
+    "integrationActivity": {},
+    "lastComputed": null
+  },
+
+  "admin": {
+    "stagingChanges": [],
+    "pendingPromotions": [],
+    "requireApprovalForProd": true
+  }
+}
