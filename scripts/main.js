@@ -45,41 +45,71 @@ const OPM = {
 };
 
 /* ----------------------------------------------------------------
+   HELPER: ensure DB has all required arrays/objects
+------------------------------------------------------------------- */
+
+function ensureDBShape() {
+  if (!OPM.db || typeof OPM.db !== "object") {
+    OPM.db = {};
+  }
+
+  const db = OPM.db;
+
+  if (!Array.isArray(db.statusPages)) db.statusPages = [];
+  if (!Array.isArray(db.integrations)) db.integrations = [];
+  if (!Array.isArray(db.users)) db.users = [];
+  if (!Array.isArray(db.history)) db.history = [];
+  if (!Array.isArray(db.notifications)) db.notifications = [];
+  if (!Array.isArray(db.logs)) db.logs = [];
+  if (!db.featureFlags || typeof db.featureFlags !== "object") db.featureFlags = {};
+  if (!db.analyticsCache || typeof db.analyticsCache !== "object") db.analyticsCache = {};
+  // support custom services feature
+  if (!Array.isArray(db.customServices)) db.customServices = [];
+
+  OPM.db = db;
+}
+
+/* ----------------------------------------------------------------
    INITIALIZATION SEQUENCE
 ------------------------------------------------------------------- */
 
 document.addEventListener("DOMContentLoaded", async () => {
-  await loadEnvironment();
-  await loadDB();
-  await loadConfigs();
-  loadLocalSettings();
-  applyTheme();
-  applyCompactMode();
-  applyRoleUI();
-  applyEnvironmentBadge();
+  try {
+    await loadEnvironment();
+    await loadDB();
+    await loadConfigs();
+    loadLocalSettings();
+    applyTheme();
+    applyCompactMode();
+    applyRoleUI();
+    applyEnvironmentBadge();
 
-  bindGlobalUIEvents();
-  bindTabEvents();
-  bindSidebarEvents();
-  bindSettingsEvents();
-  bindProfileEvents();
-  bindAdminEvents();
-  bindNotificationEvents();
-  bindHistoryEvents();
-  bindPublicShareEvents();
+    bindGlobalUIEvents();
+    bindTabEvents();
+    bindSidebarEvents();
+    bindCustomServiceEvents();
+    bindSettingsEvents();
+    bindProfileEvents();
+    bindAdminEvents();
+    bindNotificationEvents();
+    bindHistoryEvents();
+    bindPublicShareEvents();
 
-  renderCustomServiceList();
-  renderStatusTableAdmin();
-  renderIntegrationsTableAdmin();
-  renderFeatureFlags();
+    renderCustomServiceList();
+    renderStatusTableAdmin();
+    renderIntegrationsTableAdmin();
+    renderFeatureFlags();
 
-  renderAllWidgets();
-  updateOverviewCounts();
-  buildAnalyticsCharts();
+    renderAllWidgets();
+    updateOverviewCounts();
+    buildAnalyticsCharts();
 
-  startAutoRefresh();
+    startAutoRefresh();
 
-  logEvent("system", "Dashboard initialized");
+    logEvent("system", "Dashboard initialized");
+  } catch (err) {
+    console.error("Fatal initialization error:", err);
+  }
 });
 
 /* ----------------------------------------------------------------
@@ -95,8 +125,13 @@ async function loadDB() {
   // Load from localStorage or fallback to the JSON file
   const local = localStorage.getItem("opm-db");
   if (local) {
-    OPM.db = JSON.parse(local);
-    return;
+    try {
+      OPM.db = JSON.parse(local);
+      ensureDBShape();
+      return;
+    } catch (e) {
+      console.warn("Local opm-db corrupt, ignoring:", e);
+    }
   }
 
   try {
@@ -104,6 +139,7 @@ async function loadDB() {
     const res = await fetch("database/opm-db.json");
     if (!res.ok) throw new Error("DB file not found");
     OPM.db = await res.json();
+    ensureDBShape();
   } catch (err) {
     console.error("Failed to load DB, using in-memory defaults:", err);
     // minimal safe fallback so app still runs
@@ -115,8 +151,10 @@ async function loadDB() {
       notifications: [],
       logs: [],
       featureFlags: {},
-      analyticsCache: {}
+      analyticsCache: {},
+      customServices: []
     };
+    ensureDBShape();
   }
   saveDB();
 }
@@ -129,8 +167,12 @@ async function loadConfigs() {
 
     if (!statusRes.ok || !integRes.ok) throw new Error("Config fetch failed");
 
-    OPM.statusConfigs      = await statusRes.json();
-    OPM.integrationConfigs = await integRes.json();
+    const statusJson = await statusRes.json();
+    const integJson  = await integRes.json();
+
+    // Support both array and {statusPages:[…]} style configs
+    OPM.statusConfigs      = Array.isArray(statusJson) ? statusJson : (statusJson.statusPages || []);
+    OPM.integrationConfigs = Array.isArray(integJson)  ? integJson  : (integJson.integrations || []);
   } catch (err) {
     console.error("Failed to load configs:", err);
     OPM.statusConfigs = [];
@@ -143,7 +185,11 @@ async function loadConfigs() {
 ------------------------------------------------------------------- */
 
 function saveDB() {
-  localStorage.setItem("opm-db", JSON.stringify(OPM.db));
+  try {
+    localStorage.setItem("opm-db", JSON.stringify(OPM.db));
+  } catch (e) {
+    console.warn("Failed to save DB to localStorage:", e);
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -152,7 +198,13 @@ function saveDB() {
 
 function loadLocalSettings() {
   const stored = localStorage.getItem("opm-settings");
-  if (stored) OPM.settings = { ...OPM.settings, ...JSON.parse(stored) };
+  if (stored) {
+    try {
+      OPM.settings = { ...OPM.settings, ...JSON.parse(stored) };
+    } catch (e) {
+      console.warn("Invalid local settings, ignoring:", e);
+    }
+  }
 }
 
 function saveLocalSettings() {
@@ -181,17 +233,22 @@ function applyCompactMode() {
 }
 
 function applyRoleUI() {
-  // Hide admin tab if not admin
-  document.getElementById("viewAdmin").hidden = OPM.role !== "admin";
-  document.getElementById("tabAdmin").style.display = OPM.role === "admin" ? "" : "none";
-  document.querySelector("#roleLabel").textContent =
-    OPM.role === "admin" ? "Admin" :
-    OPM.role === "viewer" ? "Viewer" : "Public";
+  const viewAdmin = document.getElementById("viewAdmin");
+  const tabAdmin  = document.getElementById("tabAdmin");
+  const roleLabel = document.querySelector("#roleLabel");
+
+  if (viewAdmin) viewAdmin.hidden = OPM.role !== "admin";
+  if (tabAdmin)  tabAdmin.style.display = OPM.role === "admin" ? "" : "none";
+  if (roleLabel) {
+    roleLabel.textContent =
+      OPM.role === "admin" ? "Admin" :
+      OPM.role === "viewer" ? "Viewer" : "Public";
+  }
 }
 
 function applyEnvironmentBadge() {
   const badge = document.getElementById("envBadge");
-  badge.textContent = OPM.env.toUpperCase();
+  if (badge) badge.textContent = OPM.env.toUpperCase();
 }
 
 /* ----------------------------------------------------------------
@@ -199,13 +256,20 @@ function applyEnvironmentBadge() {
 ------------------------------------------------------------------- */
 
 function bindGlobalUIEvents() {
-  document.getElementById("themeToggleBtn").addEventListener("click", () => {
-    OPM.settings.theme = document.body.dataset.theme === "dark" ? "light" : "dark";
-    saveLocalSettings();
-    applyTheme();
-  });
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  const refreshAllBtn  = document.getElementById("refreshAllBtn");
 
-  document.getElementById("refreshAllBtn").addEventListener("click", refreshAllWidgets);
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      OPM.settings.theme = document.body.dataset.theme === "dark" ? "light" : "dark";
+      saveLocalSettings();
+      applyTheme();
+    });
+  }
+
+  if (refreshAllBtn) {
+    refreshAllBtn.addEventListener("click", refreshAllWidgets);
+  }
 }
 
 function bindTabEvents() {
@@ -218,114 +282,262 @@ function bindTabEvents() {
       document.querySelector(".view--active")?.classList.remove("view--active");
 
       const viewId = "view" + tab.dataset.view.charAt(0).toUpperCase() + tab.dataset.view.slice(1);
-      document.getElementById(viewId).classList.add("view--active");
+      const view = document.getElementById(viewId);
+      if (view) view.classList.add("view--active");
     });
   });
 }
 
 function bindSidebarEvents() {
   const toggleBtn = document.getElementById("sidebarToggleBtn");
-  const sidebar = document.getElementById("sidebar");
+  const sidebar   = document.getElementById("sidebar");
+  if (!toggleBtn || !sidebar) return;
+
   toggleBtn.addEventListener("click", () => sidebar.classList.toggle("open"));
 }
 
-function bindSettingsEvents() {
-  document.getElementById("settingsThemeSelect").addEventListener("change", e => {
-    OPM.settings.theme = e.target.value;
-    saveLocalSettings();
-    applyTheme();
-  });
+/* ----------------------------------------------------------------
+   CUSTOM SERVICES (NEW: events + renderer)
+------------------------------------------------------------------- */
 
-  document.getElementById("settingsCompactMode").addEventListener("change", e => {
-    OPM.settings.compactMode = e.target.checked;
-    saveLocalSettings();
-    applyCompactMode();
-  });
+function bindCustomServiceEvents() {
+  const nameInput = document.getElementById("customServiceName");
+  const urlInput  = document.getElementById("customServiceUrl");
+  const addBtn    = document.getElementById("addCustomServiceBtn");
 
-  document.getElementById("settingsRefreshInterval").addEventListener("change", e => {
-    OPM.settings.refreshInterval = Number(e.target.value);
-    saveLocalSettings();
-    restartAutoRefresh();
-  });
+  if (!addBtn || !nameInput || !urlInput) return;
 
-  document.getElementById("testAlertSoundBtn").addEventListener("click", () => {
-    playAlertSound(OPM.settings.alertSound);
-  });
+  addBtn.addEventListener("click", () => {
+    const name = nameInput.value.trim();
+    const url  = urlInput.value.trim();
 
-  document.getElementById("resetLocalDataBtn").addEventListener("click", () => {
-    localStorage.clear();
-    alert("Local data reset. Reloading page.");
-    location.reload();
+    if (!name || !url) {
+      alert("Please enter both a name and status URL.");
+      return;
+    }
+
+    ensureDBShape();
+    OPM.db.customServices.push({
+      id: uuid(),
+      name,
+      url,
+      created: Date.now()
+    });
+    saveDB();
+    nameInput.value = "";
+    urlInput.value = "";
+    renderCustomServiceList();
   });
 }
+
+function renderCustomServiceList() {
+  const container = document.getElementById("customServicesList");
+  if (!container) return;
+
+  ensureDBShape();
+  const services = OPM.db.customServices || [];
+
+  container.innerHTML = "";
+
+  if (!services.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "No custom services added yet.";
+    container.appendChild(empty);
+    return;
+  }
+
+  services.forEach((svc, index) => {
+    const row = document.createElement("div");
+    row.className = "custom-service-item";
+    row.innerHTML = `
+      <span class="svc-name">${svc.name}</span>
+      <span class="svc-url">${svc.url}</span>
+      <button class="btn btn-ghost btn-compact" data-index="${index}">Remove</button>
+    `;
+    row.querySelector("button").addEventListener("click", () => {
+      OPM.db.customServices.splice(index, 1);
+      saveDB();
+      renderCustomServiceList();
+    });
+    container.appendChild(row);
+  });
+}
+
+/* ----------------------------------------------------------------
+   SETTINGS EVENTS
+------------------------------------------------------------------- */
+
+function bindSettingsEvents() {
+  const themeSelect  = document.getElementById("settingsThemeSelect");
+  const compactCheck = document.getElementById("settingsCompactMode");
+  const intervalSel  = document.getElementById("settingsRefreshInterval");
+  const testSoundBtn = document.getElementById("testAlertSoundBtn");
+  const resetBtn     = document.getElementById("resetLocalDataBtn");
+
+  if (themeSelect) {
+    themeSelect.value = OPM.settings.theme;
+    themeSelect.addEventListener("change", e => {
+      OPM.settings.theme = e.target.value;
+      saveLocalSettings();
+      applyTheme();
+    });
+  }
+
+  if (compactCheck) {
+    compactCheck.checked = OPM.settings.compactMode;
+    compactCheck.addEventListener("change", e => {
+      OPM.settings.compactMode = e.target.checked;
+      saveLocalSettings();
+      applyCompactMode();
+    });
+  }
+
+  if (intervalSel) {
+    intervalSel.value = String(OPM.settings.refreshInterval);
+    intervalSel.addEventListener("change", e => {
+      OPM.settings.refreshInterval = Number(e.target.value);
+      saveLocalSettings();
+      restartAutoRefresh();
+    });
+  }
+
+  if (testSoundBtn) {
+    testSoundBtn.addEventListener("click", () => {
+      playAlertSound(OPM.settings.alertSound);
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      localStorage.clear();
+      alert("Local data reset. Reloading page.");
+      location.reload();
+    });
+  }
+}
+
+/* ----------------------------------------------------------------
+   PROFILE / ROLE EVENTS
+------------------------------------------------------------------- */
 
 function bindProfileEvents() {
-  document.getElementById("loginAsAdminBtn").addEventListener("click", () => {
-    OPM.role = "admin";
-    applyRoleUI();
-    logEvent("auth", "Logged in as admin");
-  });
+  const adminBtn  = document.getElementById("loginAsAdminBtn");
+  const viewerBtn = document.getElementById("loginAsViewerBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
 
-  document.getElementById("loginAsViewerBtn").addEventListener("click", () => {
-    OPM.role = "viewer";
-    applyRoleUI();
-    logEvent("auth", "Switched to viewer");
-  });
+  if (adminBtn) {
+    adminBtn.addEventListener("click", () => {
+      OPM.role = "admin";
+      applyRoleUI();
+      logEvent("auth", "Logged in as admin");
+    });
+  }
 
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    OPM.role = "public";
-    applyRoleUI();
-    logEvent("auth", "Logged out");
-  });
+  if (viewerBtn) {
+    viewerBtn.addEventListener("click", () => {
+      OPM.role = "viewer";
+      applyRoleUI();
+      logEvent("auth", "Switched to viewer");
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      OPM.role = "public";
+      applyRoleUI();
+      logEvent("auth", "Logged out");
+    });
+  }
 }
+
+/* ----------------------------------------------------------------
+   ADMIN EVENTS
+------------------------------------------------------------------- */
 
 function bindAdminEvents() {
-  document.getElementById("adminAddStatusPageBtn").addEventListener("click", () => {
-    const name = prompt("Service name:");
-    const url = prompt("API URL:");
-    const page = prompt("Public status page URL:");
+  const addStatusBtn = document.getElementById("adminAddStatusPageBtn");
+  const clearLogsBtn = document.getElementById("clearLogsBtn");
 
-    if (name && url) {
-      OPM.db.statusPages.push({
-        id: uuid(),
-        name,
-        api: url,
-        page,
-        enabled: true,
-        env: "staging"
-      });
+  if (addStatusBtn) {
+    addStatusBtn.addEventListener("click", () => {
+      const name = prompt("Service name:");
+      const url = prompt("API URL:");
+      const page = prompt("Public status page URL:");
+
+      if (name && url) {
+        ensureDBShape();
+        OPM.db.statusPages.push({
+          id: uuid(),
+          name,
+          api: url,
+          page,
+          enabled: true,
+          env: "staging"
+        });
+        saveDB();
+        renderStatusTableAdmin();
+        renderAllWidgets();
+      }
+    });
+  }
+
+  if (clearLogsBtn) {
+    clearLogsBtn.addEventListener("click", () => {
+      ensureDBShape();
+      OPM.db.logs = [];
       saveDB();
-      renderStatusTableAdmin();
-      renderAllWidgets();
-    }
-  });
-
-  document.getElementById("clearLogsBtn").addEventListener("click", () => {
-    OPM.db.logs = [];
-    saveDB();
-    renderLogs();
-  });
+      renderLogs();
+    });
+  }
 }
+
+/* ----------------------------------------------------------------
+   NOTIFICATION EVENTS
+------------------------------------------------------------------- */
 
 function bindNotificationEvents() {
-  document.getElementById("notifBtn").addEventListener("click", () => {
-    document.getElementById("notifPanel").hidden = false;
-  });
-  document.getElementById("closeNotifPanelBtn").addEventListener("click", () => {
-    document.getElementById("notifPanel").hidden = true;
-  });
+  const notifBtn = document.getElementById("notifBtn");
+  const closeBtn = document.getElementById("closeNotifPanelBtn");
+  const panel    = document.getElementById("notifPanel");
+
+  if (notifBtn && panel) {
+    notifBtn.addEventListener("click", () => {
+      panel.hidden = false;
+    });
+  }
+
+  if (closeBtn && panel) {
+    closeBtn.addEventListener("click", () => {
+      panel.hidden = true;
+    });
+  }
 }
+
+/* ----------------------------------------------------------------
+   HISTORY EVENTS
+------------------------------------------------------------------- */
 
 function bindHistoryEvents() {
-  document.getElementById("openHistoryBtn").addEventListener("click", openHistoryModal);
-  document.getElementById("historyQuickBtn").addEventListener("click", openHistoryModal);
+  const openBtn1 = document.getElementById("openHistoryBtn");
+  const openBtn2 = document.getElementById("historyQuickBtn");
+  const closeBtn1 = document.getElementById("closeHistoryModalBtn");
+  const closeBtn2 = document.getElementById("closeHistoryModalBtn2");
 
-  document.getElementById("closeHistoryModalBtn").addEventListener("click", closeHistoryModal);
-  document.getElementById("closeHistoryModalBtn2").addEventListener("click", closeHistoryModal);
+  if (openBtn1) openBtn1.addEventListener("click", openHistoryModal);
+  if (openBtn2) openBtn2.addEventListener("click", openHistoryModal);
+  if (closeBtn1) closeBtn1.addEventListener("click", closeHistoryModal);
+  if (closeBtn2) closeBtn2.addEventListener("click", closeHistoryModal);
 }
 
+/* ----------------------------------------------------------------
+   PUBLIC SHARE EVENTS
+------------------------------------------------------------------- */
+
 function bindPublicShareEvents() {
-  document.getElementById("createPublicLinkBtn").addEventListener("click", createPublicSnapshot);
+  const btn = document.getElementById("createPublicLinkBtn");
+  if (!btn) return;
+  btn.addEventListener("click", createPublicSnapshot);
 }
 
 /* ----------------------------------------------------------------
@@ -334,6 +546,7 @@ function bindPublicShareEvents() {
 
 function renderAllWidgets() {
   const grid = document.getElementById("statusWidgetsGrid");
+  if (!grid) return;
   grid.innerHTML = "";
 
   OPM.statusConfigs
@@ -358,7 +571,7 @@ function renderWidget(config) {
     <div class="widget-desc" id="desc-${config.id}">Loading...</div>
     <div class="widget-actions">
       <button class="btn btn-ghost btn-compact" data-action="refresh">Refresh</button>
-      <a class="btn btn-ghost btn-compact" href="${config.page}" target="_blank">Open</a>
+      <a class="btn btn-ghost btn-compact" href="${config.page}" target="_blank" rel="noopener noreferrer">Open</a>
     </div>
   `;
 
@@ -380,6 +593,7 @@ async function refreshAllWidgets() {
 
 async function refreshWidget(id) {
   const widget = OPM.widgets[id];
+  if (!widget) return;
   const config = widget.config;
 
   setStatus(id, "unknown", "Checking...");
@@ -392,16 +606,17 @@ async function refreshWidget(id) {
     updateHistory(id, config.name, status.level, status.message);
     checkNotificationTrigger(config.name, status);
   } catch (err) {
+    console.error("refreshWidget error:", err);
     setStatus(id, "unknown", "Unable to load");
   }
 }
 
 function setStatus(id, level, message) {
-  const dot = document.getElementById(`dot-${id}`);
+  const dot  = document.getElementById(`dot-${id}`);
   const desc = document.getElementById(`desc-${id}`);
 
-  dot.className = `widget-status-dot widget-status-${mapStatusToColor(level)}`;
-  desc.textContent = message;
+  if (dot)  dot.className = `widget-status-dot widget-status-${mapStatusToColor(level)}`;
+  if (desc) desc.textContent = message;
 }
 
 function mapStatusToColor(level) {
@@ -468,7 +683,7 @@ function normalizeHtmlStatus(html) {
 function mapStatus(s) {
   s = s.toLowerCase();
   if (s.includes("operational") || s.includes("ok")) return "ok";
-  if (s.includes("partial") || s.includes("minor")) return "warning";
+  if (s.includes("partial") || s.includes("minor") || s.includes("degrad")) return "warning";
   if (s.includes("major") || s.includes("down") || s.includes("critical")) return "major";
   return "unknown";
 }
@@ -478,10 +693,18 @@ function mapStatus(s) {
 ------------------------------------------------------------------- */
 
 function updateOverviewCounts() {
+  const opEl = document.getElementById("countOperational");
+  const warnEl = document.getElementById("countWarning");
+  const downEl = document.getElementById("countDown");
+  const unkEl = document.getElementById("countUnknown");
+
+  if (!opEl || !warnEl || !downEl || !unkEl) return;
+
   let ok = 0, warn = 0, down = 0, unknown = 0;
 
   for (const id in OPM.widgets) {
-    const desc = document.getElementById(`desc-${id}`).textContent.toLowerCase();
+    const descEl = document.getElementById(`desc-${id}`);
+    const desc = (descEl?.textContent || "").toLowerCase();
 
     if (desc.includes("ok") || desc.includes("operational")) ok++;
     else if (desc.includes("warn") || desc.includes("degrad")) warn++;
@@ -489,10 +712,10 @@ function updateOverviewCounts() {
     else unknown++;
   }
 
-  document.getElementById("countOperational").textContent = ok;
-  document.getElementById("countWarning").textContent = warn;
-  document.getElementById("countDown").textContent = down;
-  document.getElementById("countUnknown").textContent = unknown;
+  opEl.textContent = ok;
+  warnEl.textContent = warn;
+  downEl.textContent = down;
+  unkEl.textContent = unknown;
 }
 
 /* ----------------------------------------------------------------
@@ -515,6 +738,7 @@ function restartAutoRefresh() {
 ------------------------------------------------------------------- */
 
 function updateHistory(id, name, level, message) {
+  ensureDBShape();
   const entry = {
     id: uuid(),
     widgetId: id,
@@ -532,6 +756,7 @@ function updateHistory(id, name, level, message) {
 
 function renderRecentAlerts() {
   const list = document.getElementById("recentAlertsList");
+  if (!list) return;
   list.innerHTML = "";
 
   const recent = [...OPM.db.history].slice(-10).reverse();
@@ -544,18 +769,24 @@ function renderRecentAlerts() {
 }
 
 function openHistoryModal() {
-  document.getElementById("historyModal").hidden = false;
-  document.getElementById("historyOverlay").hidden = false;
+  const modal   = document.getElementById("historyModal");
+  const overlay = document.getElementById("historyOverlay");
+  if (modal)   modal.hidden = false;
+  if (overlay) overlay.hidden = false;
   renderHistoryList();
 }
 
 function closeHistoryModal() {
-  document.getElementById("historyModal").hidden = true;
-  document.getElementById("historyOverlay").hidden = true;
+  const modal   = document.getElementById("historyModal");
+  const overlay = document.getElementById("historyOverlay");
+  if (modal)   modal.hidden = true;
+  if (overlay) overlay.hidden = true;
 }
 
 function renderHistoryList() {
   const list = document.getElementById("historyList");
+  if (!list) return;
+
   list.innerHTML = "";
 
   OPM.db.history.slice().reverse().forEach(item => {
@@ -577,6 +808,7 @@ function checkNotificationTrigger(name, status) {
 }
 
 function pushNotification(title, message) {
+  ensureDBShape();
   const notif = { id: uuid(), title, message, ts: Date.now(), unread: true };
   OPM.db.notifications.push(notif);
   saveDB();
@@ -587,6 +819,7 @@ function pushNotification(title, message) {
 
 function renderNotificationList() {
   const list = document.getElementById("notifList");
+  if (!list) return;
   list.innerHTML = "";
   OPM.db.notifications.slice().reverse().forEach(n => {
     const div = document.createElement("div");
@@ -600,6 +833,8 @@ function showPopupAlert(text) {
   if (!OPM.settings.popupAlerts) return;
 
   const popup = document.getElementById("alertPopup");
+  if (!popup) return;
+
   popup.textContent = text;
   popup.hidden = false;
 
@@ -610,7 +845,7 @@ function showPopupAlert(text) {
 
 function playAlertSound(type) {
   if (type === "none") return;
-  // path relative to index.html
+  // path relative to index.html on GitHub Pages
   new Audio(`assets/sounds/${type}.mp3`).play().catch(() => {});
 }
 
@@ -629,7 +864,9 @@ function createPublicSnapshot() {
   const url = `${location.origin}${location.pathname}#public=${json}`;
 
   const area = document.getElementById("publicLinkArea");
-  area.innerHTML = `<input class="input" value="${url}" readonly />`;
+  if (area) {
+    area.innerHTML = `<input class="input" value="${url}" readonly />`;
+  }
 
   logEvent("public", "Created snapshot link");
 }
@@ -640,6 +877,8 @@ function createPublicSnapshot() {
 
 function renderStatusTableAdmin() {
   const tbody = document.querySelector("#adminStatusTable tbody");
+  if (!tbody) return;
+
   tbody.innerHTML = "";
   OPM.statusConfigs.forEach(row => {
     const tr = document.createElement("tr");
@@ -666,6 +905,8 @@ function renderStatusTableAdmin() {
 
 function renderIntegrationsTableAdmin() {
   const tbody = document.querySelector("#adminIntegrationsTable tbody");
+  if (!tbody) return;
+
   tbody.innerHTML = "";
   OPM.integrationConfigs.forEach(i => {
     const tr = document.createElement("tr");
@@ -682,6 +923,8 @@ function renderIntegrationsTableAdmin() {
 
 function renderFeatureFlags() {
   const list = document.getElementById("featureFlagsList");
+  if (!list) return;
+
   list.innerHTML = "";
 
   const flags = OPM.db.featureFlags || {};
@@ -708,11 +951,19 @@ function renderFeatureFlags() {
 ------------------------------------------------------------------- */
 
 function buildAnalyticsCharts() {
-  // Placeholder — charts can be integrated using Chart.js if desired
-  // For now we create simple textual placeholders
-  document.getElementById("chartUptime").getContext("2d").fillText("Uptime chart placeholder", 20, 20);
-  document.getElementById("chartIncidents").getContext("2d").fillText("Incidents chart placeholder", 20, 20);
-  document.getElementById("chartIntegrations").getContext("2d").fillText("Integrations chart placeholder", 20, 20);
+  const c1 = document.getElementById("chartUptime");
+  const c2 = document.getElementById("chartIncidents");
+  const c3 = document.getElementById("chartIntegrations");
+
+  if (c1?.getContext) {
+    c1.getContext("2d").fillText("Uptime chart placeholder", 20, 20);
+  }
+  if (c2?.getContext) {
+    c2.getContext("2d").fillText("Incidents chart placeholder", 20, 20);
+  }
+  if (c3?.getContext) {
+    c3.getContext("2d").fillText("Integrations chart placeholder", 20, 20);
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -731,6 +982,7 @@ function formatTs(ts) {
 }
 
 function logEvent(type, text) {
+  ensureDBShape();
   OPM.db.logs.push({
     id: uuid(),
     ts: Date.now(),
